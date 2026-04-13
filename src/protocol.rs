@@ -1,5 +1,5 @@
 use bytes::Bytes;
-type ManyData = Vec<Data>;
+pub type ManyData = Vec<Data>;
 
 /// Represents all the data that is sent __and/or__ received by server
 /// ## BY THE WAY
