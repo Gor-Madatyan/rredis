@@ -22,7 +22,9 @@ pub enum Data {
 
 /// The request types that can be sent/recieved
 #[derive(Clone, Debug)]
-pub enum Request<T:ToString>{
+pub enum Request<T>
+    where T:ToString
+{
     /// Get request, __sent to server__
     Get{key:T},
     /// Set request, __sent to server__
