@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package network_protocol;
+
+// ---------------------------------------------------------
+// Core Data Types
+// ---------------------------------------------------------
+
+// Represents all the data that is sent and/or received by server
+message Data {
+  oneof kind {
+    // Used for sending raw bytes
+    bytes byte_stream = 1;
+
+    // UTF-8 encoded string
+    string string_value = 2;
+
+    // Signed 64 bits integer
+    int64 s_integer = 3;
+
+    // Unsigned 64 bits integer
+    uint64 u_integer = 4;
+
+    // Array of Data.
+    // Wrapped in a message because `oneof` cannot directly contain `repeated` fields.
+    ManyData array = 5;
+
+    // Used to unset fields in set requests
+    NullValue null_value = 6;
+  }
+}
+
+// Wrapper for Vec<Data>
+message ManyData {
+  repeated Data elements = 1;
+}
+
+// Represents the NULL variant
+message NullValue {}
+
+// ---------------------------------------------------------
+// Request Variants
+// ---------------------------------------------------------
+
+// Get request, sent to server
+message GetRequest {
+  string key = 1;
+}
+
+// Set request, sent to server
+message SetRequest {
+  string key = 1;
+  Data value = 2;
+}
+
+// Plain data, sent to client (Maps to Request::Data)
+message DataRequest {
+  Data value = 1;
+}
+
+// ---------------------------------------------------------
+// The Frame
+// ---------------------------------------------------------
+
+// The basic unit transferred over network.
+// It encapsulates all the possible means of communication acceptable.
+message Frame {
+  // The core request
+  oneof request {
+    GetRequest get = 1;
+    SetRequest set = 2;
+    DataRequest data = 3;
+  }
+
+  // Additional context.
+  // In proto3, message fields are naturally optional.
+  // If not set over the wire, this will deserialize as `None` in Rust.
+  Data payload = 4;
+}
