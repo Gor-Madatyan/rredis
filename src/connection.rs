@@ -1,8 +1,9 @@
+use std::fmt::Display;
 use tokio::net::TcpStream;
 use crate::protocol::{Frame, RRError};
 use crate::repr;
 use prost::{Message};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub struct Connection{
     socket:TcpStream
@@ -13,6 +14,13 @@ impl Connection{
         Self{
             socket
         }
+    }
+
+    pub async fn write_frame<T:Into<String> + Display>(&mut self, frame: Frame<T>)->Result<(),RRError>{
+        let frame:repr::Frame = frame.into();
+        let b = frame.encode_length_delimited_to_vec();
+        self.socket.write_all(b.as_slice()).await?;
+        Ok(())
     }
 
     pub async fn read_frame(&mut self)->Result<Frame<String>,RRError> where{
