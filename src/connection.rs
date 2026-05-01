@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use tokio::net::TcpStream;
 use crate::protocol::{Frame, RRError};
 use crate::repr;
@@ -16,12 +15,12 @@ impl Connection{
         }
     }
 
-    pub async fn read_frame<T:Display+Into<String>>(&mut self)->Result<Frame<T>,RRError> where{
+    pub async fn read_frame(&mut self)->Result<Frame<String>,RRError> where{
         let len = self.advance_stream().await?;
         let mut buf = vec![0u8; len];
         self.socket.read_exact(&mut buf).await?;
 
-        Ok(repr::Frame::decode(buf.as_slice())?.into())
+        Ok(Result::from(repr::Frame::decode(buf.as_slice())?)?)
     }
 
     /// Advances the stream past the length delimiter and returns the delimiter so you can continue reading
