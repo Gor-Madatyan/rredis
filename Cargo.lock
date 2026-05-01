@@ -205,7 +205,6 @@ dependencies = [
  "bytes",
  "prost",
  "prost-build",
- "prost-types",
  "tokio",
 ]
 

@@ -1,3 +1,5 @@
+use std::error::Error;
+use std::fmt::{Debug};
 use bytes::Bytes;
 pub type ManyData = Vec<Data>;
 
@@ -23,7 +25,7 @@ pub enum Data {
 /// The request types that can be sent/recieved
 #[derive(Clone, Debug)]
 pub enum Request<T>
-    where T:ToString
+    where T:Into<String>
 {
     /// Get request, __sent to server__
     Get{key:T},
@@ -39,14 +41,20 @@ pub enum Request<T>
 /// # See also
 /// [`Frame::new_data_request`], [`Frame::new_set_request`] and [`Frame::new_get_request`]
 #[derive(Clone, Debug)]
-pub struct Frame<T:ToString> {
+pub struct Frame<T:Into<String>> {
     // the core request
     request: Request<T>,
     // additional context
     payload: Option<Data>
 }
 
-impl<T> Frame<T> where T: ToString{
+impl<T> Frame<T> where T: Into<String>{
+    pub(crate) fn new(request: Request<T>, payload:Option<Data>) -> Frame<T> {
+        Self{
+            request,
+            payload
+        }
+    }
     /// create new `get` request
     pub fn new_get_request(key: T, payload: Option<Data>) -> Self {
         Self{
@@ -74,5 +82,29 @@ impl<T> Frame<T> where T: ToString{
     /// gives the primary request and the optional payload
     pub fn decompose(self) -> (Request<T>, Option<Data>) {
         (self.request, self.payload)
+    }
+}
+
+#[derive(Debug)]
+pub struct RRError{
+    error: Option<Box<dyn Error>>,
+    message:String
+}
+
+impl<E:Error + 'static> From<E> for RRError{
+    fn from(value: E) -> Self {
+        let message = value.to_string();
+        Self{error:Some(Box::new(value)),message }
+    }
+}
+
+impl RRError {
+    pub fn new(message:impl Into<String>) -> RRError{
+        Self{error:None, message:message.into()}
+    }
+    pub fn source(&self) -> Option<&(dyn Error + 'static)> {
+       if let Some(ref err) = self.error {
+           Some(&**err)
+       }else { None }
     }
 }
