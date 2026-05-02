@@ -19,7 +19,13 @@ impl Connection{
         }
     }
 
-    /// Send the [Frame]
+    /// Abstraction for sending [Frame] and awaiting the response
+    pub async fn sendrecv(&mut self, frame: Frame<impl Into<String> + Display>)->Result<Frame<String>,RRError> {
+        self.write_frame(frame).await?;
+        self.read_frame().await
+    }
+
+    /// Send the [Frame].
     /// When the connection closes you will receive an [error](RRError)
     pub async fn write_frame<T:Into<String> + Display>(&mut self, frame: Frame<T>)->Result<(),RRError>{
         let frame:repr::Frame = frame.into();
@@ -28,7 +34,7 @@ impl Connection{
         Ok(())
     }
 
-    /// Suspend until the next [Frame] comes
+    /// Suspend until the next [Frame] comes.
     /// When the connection closes you will receive an [error](RRError)
     pub async fn read_frame(&mut self)->Result<Frame<String>,RRError> where{
         let len = self.advance_stream().await?;
