@@ -87,6 +87,8 @@ where
     }
 }
 
+
+/// The error type used absolutely for all errors from rredis that sometimes encapsulates another error
 #[derive(Debug)]
 pub struct RRError {
     error: Option<Box<dyn Error>>,
@@ -118,6 +120,8 @@ impl RRError {
         }
     }
 }
+
+// Conversions to native types
 
 impl<T:Into<String> + Display> From<Frame<T>> for repr::Frame {
     fn from(value: Frame<T>) -> Self {

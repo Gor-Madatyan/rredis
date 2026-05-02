@@ -2,7 +2,10 @@ use crate::protocol;
 use crate::protocol::RRError;
 use crate::repr::frame::Request;
 
+// to include codegen
 include!(concat!(env!("OUT_DIR"), "/network_protocol.rs"));
+
+// Conversions to protocol types
 
 impl From<Frame> for Result<protocol::Frame<String>,RRError> {
     fn from(value: Frame) -> Self {
