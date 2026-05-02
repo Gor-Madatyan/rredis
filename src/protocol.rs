@@ -1,4 +1,5 @@
 pub mod handler;
+pub mod storage;
 use crate::repr;
 use bytes::Bytes;
 use std::error::Error;
