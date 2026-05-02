@@ -1,22 +1,31 @@
-use tokio::net::{TcpListener, TcpStream};
 use my_redis::connection::Connection;
+use my_redis::protocol::handler::Handler;
+use my_redis::protocol::{Data, NetworkFrame, RRError};
 
-#[tokio::main]
-async fn main() {
-    let listener = TcpListener::bind("127.0.0.1:1234").await.unwrap();
-    loop {
-        let (listener,_) = listener.accept().await.unwrap();
-        tokio::spawn(async move {
-            process(listener).await;
-        });
+struct MyHandler {}
+
+impl Clone for MyHandler {
+    fn clone(&self) -> Self {
+        MyHandler {}
     }
 }
 
-async fn process(stream:TcpStream){
-    let mut connection = Connection::new(stream);
-    loop {
-        if let Ok(frame) = connection.read_frame().await {
-            println!("{:?}", frame);
-        } else {break;}
+impl Handler for MyHandler {
+    async fn handle_set_request(&mut self, key: String, value: Data, payload: Option<Data>) -> Result<NetworkFrame, RRError> {
+        println!("Handling set request with key: {}, value: {:?} payload: {:?}", key, value, payload);
+        Ok(NetworkFrame::new_data_request(Data::NULL, None))
+    }
+
+    async fn handle_get_request(&mut self, key: String, payload: Option<Data>) -> Result<NetworkFrame, RRError> {
+        println!("Handling get request with key: {:?} payload: {:?}", key, payload);
+        Ok(NetworkFrame::new_data_request(Data::NULL, None))
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    if let Err(app) = Connection::app("127.0.0.1:1234", MyHandler {}).await {
+        println!("{:?}", app);
+        return;
     }
 }

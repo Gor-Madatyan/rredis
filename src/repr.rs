@@ -7,7 +7,7 @@ include!(concat!(env!("OUT_DIR"), "/network_protocol.rs"));
 
 // Conversions to protocol types
 
-impl From<Frame> for Result<protocol::Frame<String>,RRError> {
+impl From<Frame> for Result<protocol::NetworkFrame, RRError> {
     fn from(value: Frame) -> Self {
         let request = value.request;
         let payload = value.payload;

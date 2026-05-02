@@ -1,8 +1,10 @@
+pub mod handler;
 use crate::repr;
 use bytes::Bytes;
 use std::error::Error;
 use std::fmt::{Debug, Display};
 pub type ManyData = Vec<Data>;
+pub type NetworkFrame = Frame<String>;
 
 /// Represents all the data that is sent __and/or__ received by server
 /// ## BY THE WAY

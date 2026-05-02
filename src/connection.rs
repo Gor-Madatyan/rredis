@@ -1,9 +1,9 @@
-use std::fmt::Display;
-use tokio::net::TcpStream;
-use crate::protocol::{Frame, RRError};
+use crate::protocol::{handler::Handler, Frame, NetworkFrame, RRError, Request};
 use crate::repr;
-use prost::{Message};
+use prost::Message;
+use std::fmt::Display;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 
 /// The main structure you will work with.
 /// You will send [Frame]s and/or receive them through this abstraction.
@@ -13,14 +13,37 @@ pub struct Connection{
 
 impl Connection{
     /// encapsulate the [TcpStream]
-    pub fn new(socket:TcpStream) -> Self{
-        Self{
-            socket
+    pub async fn new(socket: impl ToSocketAddrs) -> Result<Self, RRError> {
+        Ok(Self {
+            socket: TcpStream::connect(socket).await?
+        })
+    }
+
+    pub async fn app(socket_addr: impl ToSocketAddrs, handler: impl Handler) -> Result<(), RRError> {
+        let listener = TcpListener::bind(socket_addr).await?;
+        loop {
+            let (connection, _) = listener.accept().await?;
+            let mut connection = Connection { socket: connection };
+            let mut handlerc = handler.clone();
+            tokio::spawn(async move {
+                loop {
+                    let frame = connection.read_frame().await;
+                    if let Err(_) = frame { break; }
+                    let (request, payload) = frame.unwrap().decompose();
+                    let res = match request {
+                        Request::Get { key } => handlerc.handle_get_request(key, payload).await,
+                        Request::Set { key, value } => handlerc.handle_set_request(key, value, payload).await,
+                        Request::Data { .. } => Err(RRError::new("Server didn't request any data"))
+                    };
+                    if let Err(_) = res { break; }
+                    if let Err(_) = connection.write_frame(res.unwrap()).await { break; }
+                }
+            });
         }
     }
 
     /// Abstraction for sending [Frame] and awaiting the response
-    pub async fn sendrecv(&mut self, frame: Frame<impl Into<String> + Display>)->Result<Frame<String>,RRError> {
+    pub async fn sendrecv(&mut self, frame: Frame<impl Into<String> + Display>) -> Result<NetworkFrame, RRError> {
         self.write_frame(frame).await?;
         self.read_frame().await
     }
@@ -36,7 +59,9 @@ impl Connection{
 
     /// Suspend until the next [Frame] comes.
     /// When the connection closes you will receive an [error](RRError)
-    pub async fn read_frame(&mut self)->Result<Frame<String>,RRError> where{
+    pub async fn read_frame(&mut self) -> Result<NetworkFrame, RRError>
+    where
+    {
         let len = self.advance_stream().await?;
         let mut buf = vec![0u8; len];
         self.socket.read_exact(&mut buf).await?;
