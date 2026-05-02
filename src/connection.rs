@@ -1,3 +1,4 @@
+use crate::protocol::storage::StorageProxy;
 use crate::protocol::{handler::Handler, Frame, NetworkFrame, RRError, Request};
 use crate::repr;
 use prost::Message;
@@ -19,20 +20,25 @@ impl Connection{
         })
     }
 
-    pub async fn app(socket_addr: impl ToSocketAddrs, handler: impl Handler) -> Result<(), RRError> {
+    pub async fn app(socket_addr: impl ToSocketAddrs, handler: impl Handler, mut storage_proxy: impl StorageProxy) -> Result<(), RRError> {
         let listener = TcpListener::bind(socket_addr).await?;
+        let tx = storage_proxy.get_tx();
+        tokio::spawn(async move {
+            let _ = storage_proxy.listen().await;
+        });
         loop {
             let (connection, _) = listener.accept().await?;
             let mut connection = Connection { socket: connection };
             let mut handlerc = handler.clone();
+            let tx = tx.clone();
             tokio::spawn(async move {
                 loop {
                     let frame = connection.read_frame().await;
                     if let Err(_) = frame { break; }
                     let (request, payload) = frame.unwrap().decompose();
                     let res = match request {
-                        Request::Get { key } => handlerc.handle_get_request(key, payload).await,
-                        Request::Set { key, value } => handlerc.handle_set_request(key, value, payload).await,
+                        Request::Get { key } => handlerc.handle_get_request(key, payload, tx.clone()).await,
+                        Request::Set { key, value } => handlerc.handle_set_request(key, value, payload, tx.clone()).await,
                         Request::Data { .. } => Err(RRError::new("Server didn't request any data"))
                     };
                     if let Err(_) = res { break; }

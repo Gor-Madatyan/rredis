@@ -94,11 +94,11 @@ where
 /// The error type used absolutely for all errors from rredis that sometimes encapsulates another error
 #[derive(Debug)]
 pub struct RRError {
-    error: Option<Box<dyn Error>>,
+    error: Option<Box<dyn Error + Send + Sync + 'static>>,
     message: String,
 }
 
-impl<E: Error + 'static> From<E> for RRError {
+impl<E: Error + Send + Sync + 'static> From<E> for RRError {
     fn from(value: E) -> Self {
         let message = value.to_string();
         Self {
