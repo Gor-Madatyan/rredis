@@ -1,5 +1,6 @@
 pub mod handler;
 pub mod storage;
+pub mod error;
 use crate::repr;
 use bytes::Bytes;
 use std::error::Error;
@@ -90,39 +91,6 @@ where
     }
 }
 
-
-/// The error type used absolutely for all errors from rredis that sometimes encapsulates another error
-#[derive(Debug)]
-pub struct RRError {
-    error: Option<Box<dyn Error + Send + Sync + 'static>>,
-    message: String,
-}
-
-impl<E: Error + Send + Sync + 'static> From<E> for RRError {
-    fn from(value: E) -> Self {
-        let message = value.to_string();
-        Self {
-            error: Some(Box::new(value)),
-            message,
-        }
-    }
-}
-
-impl RRError {
-    pub fn new(message: impl Into<String>) -> RRError {
-        Self {
-            error: None,
-            message: message.into(),
-        }
-    }
-    pub fn source(&self) -> Option<&(dyn Error + 'static)> {
-        if let Some(ref err) = self.error {
-            Some(&**err)
-        } else {
-            None
-        }
-    }
-}
 
 // Conversions to native types
 

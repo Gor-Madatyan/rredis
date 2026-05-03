@@ -1,4 +1,5 @@
-use crate::protocol::{Data, RRError};
+use crate::protocol::error::{RRErrorKind, StorageErrorKind};
+use crate::protocol::{error::RRError, Data};
 use std::collections::HashMap;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -38,7 +39,9 @@ impl StorageProxy for DefaultStorageProxy {
                         let result = self.map.get(&key);
                         tx.send(
                             match result {
-                                None => Err(RRError::new("Not found")),
+                                None => Err(RRErrorKind::StorageError(
+                                    StorageErrorKind::FieldNotFound
+                                ).into()),
                                 Some(val) => Ok(val.clone()),
                             }
                         ).unwrap_or_default();

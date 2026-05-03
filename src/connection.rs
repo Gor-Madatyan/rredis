@@ -1,5 +1,6 @@
+use crate::protocol::error::{NetworkErrorKind, RRErrorKind, SerializationErrorKind};
 use crate::protocol::storage::StorageProxy;
-use crate::protocol::{handler::Handler, Frame, NetworkFrame, RRError, Request};
+use crate::protocol::{error::RRError, handler::Handler, Frame, NetworkFrame, Request};
 use crate::repr;
 use prost::Message;
 use std::fmt::Display;
@@ -16,18 +17,24 @@ impl Connection{
     /// encapsulate the [TcpStream]
     pub async fn new(socket: impl ToSocketAddrs) -> Result<Self, RRError> {
         Ok(Self {
-            socket: TcpStream::connect(socket).await?
+            socket: TcpStream::connect(socket).await.map_err(|_| RRErrorKind::NetworkError(
+                NetworkErrorKind::ConnectionFailed,
+            ))?
         })
     }
 
     pub async fn app(socket_addr: impl ToSocketAddrs, handler: impl Handler, mut storage_proxy: impl StorageProxy) -> Result<(), RRError> {
-        let listener = TcpListener::bind(socket_addr).await?;
+        let listener = TcpListener::bind(socket_addr).await.map_err(|_| RRErrorKind::NetworkError(
+            NetworkErrorKind::BindingToAddrFailed,
+        ))?;
         let tx = storage_proxy.get_tx();
         tokio::spawn(async move {
             let _ = storage_proxy.listen().await;
         });
         loop {
-            let (connection, _) = listener.accept().await?;
+            let (connection, _) = listener.accept().await.map_err(|_| RRErrorKind::NetworkError(
+                NetworkErrorKind::ConnectionFailed,
+            ))?;
             let mut connection = Connection { socket: connection };
             let mut handlerc = handler.clone();
             let tx = tx.clone();
@@ -39,7 +46,9 @@ impl Connection{
                     let res = match request {
                         Request::Get { key } => handlerc.handle_get_request(key, payload, tx.clone()).await,
                         Request::Set { key, value } => handlerc.handle_set_request(key, value, payload, tx.clone()).await,
-                        Request::Data { .. } => Err(RRError::new("Server didn't request any data"))
+                        Request::Data { .. } => Err(RRErrorKind::NetworkError(
+                            NetworkErrorKind::InvalidRequestType
+                        ).into())
                     };
                     if let Err(_) = res { break; }
                     if let Err(_) = connection.write_frame(res.unwrap()).await { break; }
@@ -59,7 +68,9 @@ impl Connection{
     pub async fn write_frame<T:Into<String> + Display>(&mut self, frame: Frame<T>)->Result<(),RRError>{
         let frame:repr::Frame = frame.into();
         let b = frame.encode_length_delimited_to_vec();
-        self.socket.write_all(b.as_slice()).await?;
+        self.socket.write_all(b.as_slice()).await.map_err(|_| RRErrorKind::NetworkError(
+            NetworkErrorKind::FrameWriteError,
+        ))?;
         Ok(())
     }
 
@@ -70,20 +81,28 @@ impl Connection{
     {
         let len = self.advance_stream().await?;
         let mut buf = vec![0u8; len];
-        self.socket.read_exact(&mut buf).await?;
+        self.socket.read_exact(&mut buf).await.map_err(|_| RRErrorKind::NetworkError(
+            NetworkErrorKind::FrameReadError,
+        ))?;
 
-        Ok(Result::from(repr::Frame::decode(buf.as_slice())?)?)
+        Ok(Result::from(repr::Frame::decode(buf.as_slice()).map_err(|_| RRErrorKind::SerializationError(
+            SerializationErrorKind::FormatError
+        ))?)?)
     }
 
     /// Advances the stream past the length delimiter and returns the delimiter so you can continue reading
     async fn advance_stream(&mut self)->Result<usize,RRError>{
         let mut buf = [0u8;8];
         for i in 0..10{
-            buf[i]=self.socket.read_u8().await?;
+            buf[i] = self.socket.read_u8().await.map_err(|_| RRErrorKind::NetworkError(
+                NetworkErrorKind::FrameReadError,
+            ))?;
             if let Ok(len) = prost::decode_length_delimiter(buf.as_slice()){
                 return Ok(len);
             }
         }
-        Err(RRError::new("Invalid length delimiter"))
+        Err(RRErrorKind::SerializationError(
+            SerializationErrorKind::FormatError
+        ).into())
     }
 }
