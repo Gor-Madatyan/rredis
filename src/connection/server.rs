@@ -69,7 +69,6 @@ fn handle_connection(mut connection: Connection, mut handler: impl Handler, tx: 
                 ).into())
             };
             if let Err(_) = res { break; }
-            println!("{res:?}");
             if let Err(_) = connection.write_frame(res.unwrap()).await { break; }
         }
     });
