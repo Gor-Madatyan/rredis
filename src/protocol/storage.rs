@@ -12,7 +12,7 @@ pub enum StorageRequest {
 
 pub trait StorageProxy: Send + Sync + 'static {
     fn get_tx(&self) -> Sender<StorageRequest>;
-    fn listen(&mut self) -> impl Future<Output=Result<(), RRError>> + Send;
+    fn listen(&mut self) -> impl Future<Output=()> + Send;
 }
 
 pub struct DefaultStorageProxy {
@@ -26,7 +26,7 @@ impl StorageProxy for DefaultStorageProxy {
         self.tx.clone()
     }
 
-    async fn listen(&mut self) -> Result<(), RRError> {
+    async fn listen(&mut self) {
         loop {
             let req = self.rx.recv().await;
             if let Some(req) = req {
@@ -49,7 +49,6 @@ impl StorageProxy for DefaultStorageProxy {
                 }
                 continue;
             }
-            return Ok(());
         }
     }
 }

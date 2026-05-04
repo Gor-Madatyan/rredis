@@ -1,11 +1,11 @@
+pub mod server;
 use crate::protocol::error::{NetworkErrorKind, RRErrorKind, SerializationErrorKind};
-use crate::protocol::storage::StorageProxy;
-use crate::protocol::{error::RRError, handler::Handler, Frame, NetworkFrame, Request};
+use crate::protocol::{error::RRError, Frame, NetworkFrame};
 use crate::repr;
 use prost::Message;
 use std::fmt::Display;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+use tokio::net::{TcpStream, ToSocketAddrs};
 
 /// The main structure you will work with.
 /// You will send [Frame]s and/or receive them through this abstraction.
@@ -14,47 +14,17 @@ pub struct Connection{
 }
 
 impl Connection{
+    pub fn new(socket: TcpStream) -> Self {
+        Self { socket }
+    }
+
     /// encapsulate the [TcpStream]
-    pub async fn new(socket: impl ToSocketAddrs) -> Result<Self, RRError> {
+    pub async fn to(socket: impl ToSocketAddrs) -> Result<Self, RRError> {
         Ok(Self {
             socket: TcpStream::connect(socket).await.map_err(|_| RRErrorKind::NetworkError(
                 NetworkErrorKind::ConnectionFailed,
             ))?
         })
-    }
-
-    pub async fn app(socket_addr: impl ToSocketAddrs, handler: impl Handler, mut storage_proxy: impl StorageProxy) -> Result<(), RRError> {
-        let listener = TcpListener::bind(socket_addr).await.map_err(|_| RRErrorKind::NetworkError(
-            NetworkErrorKind::BindingToAddrFailed,
-        ))?;
-        let tx = storage_proxy.get_tx();
-        tokio::spawn(async move {
-            let _ = storage_proxy.listen().await;
-        });
-        loop {
-            let (connection, _) = listener.accept().await.map_err(|_| RRErrorKind::NetworkError(
-                NetworkErrorKind::ConnectionFailed,
-            ))?;
-            let mut connection = Connection { socket: connection };
-            let mut handlerc = handler.clone();
-            let tx = tx.clone();
-            tokio::spawn(async move {
-                loop {
-                    let frame = connection.read_frame().await;
-                    if let Err(_) = frame { break; }
-                    let (request, payload) = frame.unwrap().decompose();
-                    let res = match request {
-                        Request::Get { key } => handlerc.handle_get_request(key, payload, tx.clone()).await,
-                        Request::Set { key, value } => handlerc.handle_set_request(key, value, payload, tx.clone()).await,
-                        Request::Data { .. } => Err(RRErrorKind::NetworkError(
-                            NetworkErrorKind::InvalidRequestType
-                        ).into())
-                    };
-                    if let Err(_) = res { break; }
-                    if let Err(_) = connection.write_frame(res.unwrap()).await { break; }
-                }
-            });
-        }
     }
 
     /// Abstraction for sending [Frame] and awaiting the response
@@ -84,7 +54,6 @@ impl Connection{
         self.socket.read_exact(&mut buf).await.map_err(|_| RRErrorKind::NetworkError(
             NetworkErrorKind::FrameReadError,
         ))?;
-
         Ok(Result::from(repr::Frame::decode(buf.as_slice()).map_err(|_| RRErrorKind::SerializationError(
             SerializationErrorKind::FormatError
         ))?)?)
