@@ -70,7 +70,6 @@ fn handle_connection(mut connection: Connection, mut handler: impl Handler, tx: 
             };
             if let Err(_) = res { break; } // TODO send error response
             if let Err(_) = connection.write_frame(res.unwrap()).await { break; }
-            //test
         }
     });
 }
