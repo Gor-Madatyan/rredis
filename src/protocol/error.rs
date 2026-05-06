@@ -1,19 +1,32 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SerializationErrorKind {
-    FieldNotOptional(&'static str),
+    FieldNotOptional(String),
     FormatError,
 }
 
-#[derive(Debug)]
+
+#[derive(Debug, Clone)]
 pub enum StorageErrorKind {
     FieldNotFound,
     UnexpectedError,
 }
 
-#[derive(Debug)]
+impl TryFrom<i32> for StorageErrorKind {
+    type Error = RRError;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(StorageErrorKind::FieldNotFound),
+            2 => Ok(StorageErrorKind::UnexpectedError),
+            _ => Err(RRErrorKind::SerializationError(SerializationErrorKind::FormatError).into())
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum NetworkErrorKind {
     ConnectionFailed,
     BindingToAddrFailed,
@@ -22,7 +35,22 @@ pub enum NetworkErrorKind {
     FrameReadError,
 }
 
-#[derive(Debug)]
+impl TryFrom<i32> for NetworkErrorKind {
+    type Error = RRError;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(NetworkErrorKind::ConnectionFailed),
+            2 => Ok(NetworkErrorKind::BindingToAddrFailed),
+            3 => Ok(NetworkErrorKind::InvalidRequestType),
+            4 => Ok(NetworkErrorKind::FrameWriteError),
+            5 => Ok(NetworkErrorKind::FrameReadError),
+            _ => Err(RRErrorKind::SerializationError(SerializationErrorKind::FormatError).into())
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum RRErrorKind {
     SerializationError(SerializationErrorKind),
     StorageError(StorageErrorKind),
@@ -30,7 +58,7 @@ pub enum RRErrorKind {
 }
 
 /// The error type used absolutely for all errors from rredis.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RRError {
     kind: RRErrorKind,
     message: Option<String>,
@@ -45,6 +73,9 @@ impl From<RRErrorKind> for RRError {
 impl RRError {
     pub fn new(kind: RRErrorKind, message: Option<String>) -> Self {
         Self { kind, message }
+    }
+    pub fn decompose(self) -> (RRErrorKind, Option<String>) {
+        (self.kind, self.message)
     }
 }
 

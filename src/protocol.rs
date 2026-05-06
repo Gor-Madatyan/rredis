@@ -3,8 +3,10 @@ pub mod storage;
 pub mod error;
 pub mod conversions;
 
+use crate::protocol::error::RRError;
 use bytes::Bytes;
 use std::fmt::Debug;
+
 pub type ManyData = Vec<Data>;
 pub type NetworkFrame = Frame<String>;
 
@@ -39,6 +41,8 @@ where
     Set { key: T, value: Data },
     /// plain data, __sent to client__
     Data { value: Data },
+    /// Refusal is better than silence :)
+    Error { error: RRError },
 }
 
 /// The basic unit transferred over network.\
@@ -81,6 +85,14 @@ where
     pub fn new_data_request(data: Data, payload: Option<Data>) -> Self {
         Self {
             request: Request::Data { value: data },
+            payload,
+        }
+    }
+
+    /// Sometimes it is important to say no !!!!
+    pub fn new_error_request(error: RRError, payload: Option<Data>) -> Self {
+        Self {
+            request: Request::Error { error },
             payload,
         }
     }

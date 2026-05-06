@@ -2,7 +2,7 @@ use crate::connection::Connection;
 use crate::protocol::error::{NetworkErrorKind, RRError, RRErrorKind};
 use crate::protocol::handler::Handler;
 use crate::protocol::storage::{StorageProxy, StorageRequest};
-use crate::protocol::Request;
+use crate::protocol::{Frame, Request};
 use tokio::net::{TcpListener, ToSocketAddrs};
 
 pub(super) async fn server(socket: impl ToSocketAddrs) -> Result<TcpListener, RRError> {
@@ -21,12 +21,18 @@ pub(super) fn handle_connection(mut connection: Connection, mut handler: impl Ha
             let res = match request {
                 Request::Get { key } => handler.handle_get_request(key, payload, tx.clone()).await,
                 Request::Set { key, value } => handler.handle_set_request(key, value, payload, tx.clone()).await,
-                Request::Data { .. } => Err(RRErrorKind::NetworkError(
+                Request::Data { .. } | Request::Error { .. } => Err(RRErrorKind::NetworkError(
                     NetworkErrorKind::InvalidRequestType
-                ).into())
+                ).into()),
             };
-            if let Err(_) = res { break; } // TODO send error response
-            if let Err(_) = connection.write_frame(res.unwrap()).await { break; }
+            if let Ok(res) = res {
+                if let Err(_) = connection.write_frame(res).await { break; }
+            } else if let Err(err) = res {
+                println!("Error: {:?}", err);
+                if let Err(_) = connection.write_frame(
+                    Frame::<String>::new_error_request(err, None)
+                ).await { break; }
+            }
         }
     });
 }

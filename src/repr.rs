@@ -1,3 +1,5 @@
+mod error_conversions;
+
 use crate::protocol;
 use crate::protocol::error::{RRError, RRErrorKind, SerializationErrorKind as PSerializationErrorKind};
 use crate::repr::frame::Request;
@@ -13,7 +15,7 @@ impl From<Frame> for Result<protocol::NetworkFrame, RRError> {
         let payload = value.payload;
 
         let request = Result::from(request.ok_or(RRErrorKind::SerializationError(
-            PSerializationErrorKind::FieldNotOptional("request"),
+            PSerializationErrorKind::FieldNotOptional("request".into()),
         ))?)?;
         let payload = match payload {
             None => None,
@@ -30,15 +32,26 @@ impl From<Request> for Result<protocol::Request<String>, RRError> {
             Request::Set(req) => Ok(protocol::Request::Set {
                 key: req.key,
                 value: Result::from(req.value.ok_or(RRErrorKind::SerializationError(
-                    PSerializationErrorKind::FieldNotOptional("value (set request)"),
+                    PSerializationErrorKind::FieldNotOptional("value (set request)".into()),
                 ))?)?,
             }),
             Request::Data(req) => Ok(protocol::Request::Data {
                 value: Result::from(req.value.ok_or(RRErrorKind::SerializationError(
-                    PSerializationErrorKind::FieldNotOptional("value (data request)"),
+                    PSerializationErrorKind::FieldNotOptional("value (data request)".into()),
                 ))?)?,
             }),
-            Request::Error(_) => todo!(),
+            Request::Error(e) => {
+                Ok(protocol::Request::Error {
+                    error: RRError::new(
+                        Result::from(e.kind.ok_or(
+                            RRErrorKind::SerializationError(
+                                PSerializationErrorKind::FieldNotOptional("kind (error)".into())
+                            )
+                        )?)?,
+                        e.message,
+                    )
+                })
+            }
         }
     }
 }
@@ -48,7 +61,7 @@ impl From<Data> for Result<protocol::Data, RRError> {
         match value
             .kind
             .ok_or(RRErrorKind::SerializationError(
-                PSerializationErrorKind::FieldNotOptional("kind (data.kind)"),
+                PSerializationErrorKind::FieldNotOptional("kind (data.kind)".into()),
             ))?
         {
             data::Kind::UInteger(int) => Ok(protocol::Data::UInteger(int)),
