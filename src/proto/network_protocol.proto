@@ -6,54 +6,86 @@ package network_protocol;
 // Core Data Types
 // ---------------------------------------------------------
 
-// Represents all the data that is sent and/or received by server
 message Data {
   oneof kind {
-    // Used for sending raw bytes
     bytes byte_stream = 1;
-
-    // UTF-8 encoded string
     string string_value = 2;
-
-    // Signed 64 bits integer
     int64 s_integer = 3;
-
-    // Unsigned 64 bits integer
     uint64 u_integer = 4;
-
-    // Array of Data.
-    // Wrapped in a message because `oneof` cannot directly contain `repeated` fields.
     ManyData array = 5;
-
-    // Used to unset fields in set requests
     NullValue null_value = 6;
   }
 }
 
-// Wrapper for Vec<Data>
 message ManyData {
   repeated Data elements = 1;
 }
 
-// Represents the NULL variant
 message NullValue {}
+
+// ---------------------------------------------------------
+// Error Types
+// ---------------------------------------------------------
+
+// Empty message to represent the data-less variant in SerializationErrorKind
+message FormatError {}
+
+// Maps to SerializationErrorKind
+// Using a oneof because FieldNotOptional contains data (a string)
+message SerializationErrorKind {
+  oneof kind {
+    string field_not_optional = 1;
+    FormatError format_error = 2;
+  }
+}
+
+// Maps to StorageErrorKind
+enum StorageErrorKind {
+  STORAGE_ERROR_UNSPECIFIED = 0; // proto3 requires 0 as the default
+  STORAGE_ERROR_FIELD_NOT_FOUND = 1;
+  STORAGE_ERROR_UNEXPECTED_ERROR = 2;
+}
+
+// Maps to NetworkErrorKind
+enum NetworkErrorKind {
+  NETWORK_ERROR_UNSPECIFIED = 0; // proto3 requires 0 as the default
+  NETWORK_ERROR_CONNECTION_FAILED = 1;
+  NETWORK_ERROR_BINDING_TO_ADDR_FAILED = 2;
+  NETWORK_ERROR_INVALID_REQUEST_TYPE = 3;
+  NETWORK_ERROR_FRAME_WRITE_ERROR = 4;
+  NETWORK_ERROR_FRAME_READ_ERROR = 5;
+}
+
+// Maps to RRErrorKind
+message RRErrorKind {
+  oneof kind {
+    SerializationErrorKind serialization_error = 1;
+    StorageErrorKind storage_error = 2;
+    NetworkErrorKind network_error = 3;
+  }
+}
+
+// Maps to RRError struct.
+// Named ErrorRequest to match your requested naming convention for the Frame.
+message ErrorRequest {
+  RRErrorKind kind = 1;
+  // The `optional` keyword ensures `prost` generates an Option<String> in Rust
+  optional string message = 2;
+}
 
 // ---------------------------------------------------------
 // Request Variants
 // ---------------------------------------------------------
 
-// Get request, sent to server
 message GetRequest {
   string key = 1;
 }
 
-// Set request, sent to server
 message SetRequest {
   string key = 1;
   Data value = 2;
 }
 
-// Plain data, sent to client (Maps to Request::Data)
 message DataRequest {
   Data value = 1;
 }
@@ -62,18 +94,15 @@ message DataRequest {
 // The Frame
 // ---------------------------------------------------------
 
-// The basic unit transferred over network.
-// It encapsulates all the possible means of communication acceptable.
 message Frame {
   // The core request
   oneof request {
     GetRequest get = 1;
     SetRequest set = 2;
     DataRequest data = 3;
+    ErrorRequest error = 4; // Newly added ErrorRequest
   }
 
-  // Additional context.
-  // In proto3, message fields are naturally optional.
-  // If not set over the wire, this will deserialize as `None` in Rust.
-  Data payload = 4;
+  // Additional context
+  Data payload = 5;
 }

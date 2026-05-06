@@ -1,5 +1,5 @@
 use crate::protocol;
-use crate::protocol::error::{RRError, RRErrorKind, SerializationErrorKind};
+use crate::protocol::error::{RRError, RRErrorKind, SerializationErrorKind as PSerializationErrorKind};
 use crate::repr::frame::Request;
 
 // to include codegen
@@ -13,7 +13,7 @@ impl From<Frame> for Result<protocol::NetworkFrame, RRError> {
         let payload = value.payload;
 
         let request = Result::from(request.ok_or(RRErrorKind::SerializationError(
-            SerializationErrorKind::FieldNotOptional("request"),
+            PSerializationErrorKind::FieldNotOptional("request"),
         ))?)?;
         let payload = match payload {
             None => None,
@@ -30,14 +30,15 @@ impl From<Request> for Result<protocol::Request<String>, RRError> {
             Request::Set(req) => Ok(protocol::Request::Set {
                 key: req.key,
                 value: Result::from(req.value.ok_or(RRErrorKind::SerializationError(
-                    SerializationErrorKind::FieldNotOptional("value (set request)"),
+                    PSerializationErrorKind::FieldNotOptional("value (set request)"),
                 ))?)?,
             }),
             Request::Data(req) => Ok(protocol::Request::Data {
                 value: Result::from(req.value.ok_or(RRErrorKind::SerializationError(
-                    SerializationErrorKind::FieldNotOptional("value (data request)"),
+                    PSerializationErrorKind::FieldNotOptional("value (data request)"),
                 ))?)?,
             }),
+            Request::Error(_) => todo!(),
         }
     }
 }
@@ -47,7 +48,7 @@ impl From<Data> for Result<protocol::Data, RRError> {
         match value
             .kind
             .ok_or(RRErrorKind::SerializationError(
-                SerializationErrorKind::FieldNotOptional("kind (data.kind)"),
+                PSerializationErrorKind::FieldNotOptional("kind (data.kind)"),
             ))?
         {
             data::Kind::UInteger(int) => Ok(protocol::Data::UInteger(int)),
