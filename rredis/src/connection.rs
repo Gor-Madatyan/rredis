@@ -1,7 +1,7 @@
 pub mod server;
-use crate::protocol::error::{NetworkErrorKind, RRErrorKind, SerializationErrorKind};
-use crate::protocol::{Frame, NetworkFrame, error::RRError};
-use crate::repr;
+use rredis_wire::protocol::error::{NetworkErrorKind, RRErrorKind, SerializationErrorKind};
+use rredis_wire::protocol::{error::RRError, Frame, NetworkFrame};
+use rredis_wire::repr;
 use prost::Message;
 use std::fmt::Display;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};

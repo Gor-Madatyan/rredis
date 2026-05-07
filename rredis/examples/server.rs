@@ -1,8 +1,8 @@
-use my_redis::connection::server::ServerBuilder;
-use my_redis::protocol::error::{RRErrorKind, StorageErrorKind};
-use my_redis::protocol::handler::Handler;
-use my_redis::protocol::storage::{DefaultStorageProxy, StorageRequest, StorageSink};
-use my_redis::protocol::{error::RRError, Data, NetworkFrame};
+use rredis::connection::server::ServerBuilder;
+use rredis::handler::Handler;
+use rredis::protocol::error::{RRErrorKind, StorageErrorKind};
+use rredis::protocol::{error::RRError, Data, NetworkFrame};
+use rredis::storage::{DefaultStorageProxy, StorageRequest, StorageSink};
 use std::error::Error;
 
 struct MyHandler {}

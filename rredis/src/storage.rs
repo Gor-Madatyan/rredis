@@ -1,5 +1,5 @@
-use crate::protocol::error::{RRErrorKind, StorageErrorKind};
-use crate::protocol::{error::RRError, Data};
+use rredis_wire::protocol::error::{RRErrorKind, StorageErrorKind};
+use rredis_wire::protocol::{error::RRError, Data};
 use std::collections::HashMap;
 use tokio::sync::mpsc::{Receiver, Sender};
 

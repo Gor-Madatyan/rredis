@@ -1,8 +1,8 @@
 mod helper;
 
-use crate::protocol::error::RRError;
-use crate::protocol::handler::Handler;
-use crate::protocol::storage::StorageProxy;
+use rredis_wire::protocol::error::RRError;
+use crate::handler::Handler;
+use crate::storage::StorageProxy;
 use helper::*;
 use tokio::net::{TcpListener, ToSocketAddrs};
 

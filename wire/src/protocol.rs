@@ -1,9 +1,7 @@
-pub mod handler;
-pub mod storage;
 pub mod error;
 pub mod conversions;
 
-use crate::protocol::error::RRError;
+use error::RRError;
 use bytes::Bytes;
 use std::fmt::Debug;
 
@@ -62,7 +60,7 @@ impl<T> Frame<T>
 where
     T: Into<String>,
 {
-    pub(crate) fn new(request: Request<T>, payload: Option<Data>) -> Frame<T> {
+    pub fn new(request: Request<T>, payload: Option<Data>) -> Frame<T> {
         Self { request, payload }
     }
     /// create new `get` request

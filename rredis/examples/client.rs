@@ -1,6 +1,6 @@
-use my_redis::connection::Connection;
-use my_redis::protocol::Data;
-use my_redis::protocol::Frame;
+use rredis::connection::Connection;
+use rredis::protocol::Data;
+use rredis::protocol::Frame;
 use std::error::Error;
 
 #[tokio::main]
