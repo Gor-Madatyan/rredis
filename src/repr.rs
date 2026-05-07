@@ -17,13 +17,14 @@ impl TryFrom<Frame> for protocol::NetworkFrame {
         let request = value.request;
         let payload = value.payload;
 
-        let request =
-            protocol::Request::try_from(request.ok_or(RRErrorKind::SerializationError(
+        let request = request
+            .ok_or(RRErrorKind::SerializationError(
                 PSerializationErrorKind::FieldNotOptional("request".into()),
-            ))?)?;
+            ))?
+            .try_into()?;
         let payload = match payload {
             None => None,
-            Some(payload) => Some(protocol::Data::try_from(payload)?),
+            Some(payload) => Some(payload.try_into()?),
         };
         Ok(protocol::Frame::new(request, payload))
     }
@@ -36,18 +37,20 @@ impl TryFrom<Request> for protocol::Request<String> {
             Request::Get(req) => Ok(protocol::Request::Get { key: req.key }),
             Request::Set(req) => Ok(protocol::Request::Set {
                 key: req.key,
-                value: protocol::Data::try_from(req.value.ok_or(
-                    RRErrorKind::SerializationError(PSerializationErrorKind::FieldNotOptional(
-                        "value (set request)".into(),
-                    )),
-                )?)?,
+                value: req
+                    .value
+                    .ok_or(RRErrorKind::SerializationError(
+                        PSerializationErrorKind::FieldNotOptional("value (set request)".into()),
+                    ))?
+                    .try_into()?,
             }),
             Request::Data(req) => Ok(protocol::Request::Data {
-                value: protocol::Data::try_from(req.value.ok_or(
-                    RRErrorKind::SerializationError(PSerializationErrorKind::FieldNotOptional(
-                        "value (data request)".into(),
-                    )),
-                )?)?,
+                value: req
+                    .value
+                    .ok_or(RRErrorKind::SerializationError(
+                        PSerializationErrorKind::FieldNotOptional("value (data request)".into()),
+                    ))?
+                    .try_into()?,
             }),
             Request::Error(e) => Ok(protocol::Request::Error {
                 error: RRError::new(
@@ -74,7 +77,7 @@ impl TryFrom<Data> for protocol::Data {
             data::Kind::Array(arr) => Ok(protocol::Data::Array({
                 let mut v: Vec<protocol::Data> = Vec::new();
                 for d in arr.elements {
-                    v.push(protocol::Data::try_from(d)?)
+                    v.push(d.try_into()?)
                 }
                 v
             })),
