@@ -3,9 +3,8 @@
 use crate::protocol::error::{RRError, RRErrorKind, SerializationErrorKind};
 use crate::protocol::{Data, Frame, Request};
 use crate::repr;
-use std::fmt::Display;
 
-impl<T: Into<String> + Display> From<Frame<T>> for repr::Frame {
+impl<T: Into<String>> From<Frame<T>> for repr::Frame {
     fn from(value: Frame<T>) -> Self {
         Self {
             payload: value.payload.map(|d| d.into()),

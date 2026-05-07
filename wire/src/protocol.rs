@@ -1,8 +1,11 @@
 pub mod error;
 pub mod conversions;
 
+use crate::protocol::error::{RRErrorKind, SerializationErrorKind};
+use crate::repr;
+use bytes::{Buf, Bytes};
 use error::RRError;
-use bytes::Bytes;
+use prost::Message;
 use std::fmt::Debug;
 
 pub type ManyData = Vec<Data>;
@@ -93,6 +96,18 @@ where
             request: Request::Error { error },
             payload,
         }
+    }
+
+    pub fn encode_length_delimited_to_vec(self) -> Vec<u8> {
+        repr::Frame::from(self).encode_length_delimited_to_vec()
+    }
+
+    pub fn decode(buf: impl Buf) -> Result<Frame<String>, RRError> {
+        Ok(Frame::try_from(
+            repr::Frame::decode(buf).map_err(|_| {
+                RRErrorKind::SerializationError(SerializationErrorKind::FormatError)
+            })?,
+        )?)
     }
 
     /// gives the primary request and the optional payload

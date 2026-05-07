@@ -1,8 +1,6 @@
 pub mod server;
 use rredis_wire::protocol::error::{NetworkErrorKind, RRErrorKind, SerializationErrorKind};
 use rredis_wire::protocol::{error::RRError, Frame, NetworkFrame};
-use rredis_wire::repr;
-use prost::Message;
 use std::fmt::Display;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, ToSocketAddrs};
@@ -42,7 +40,6 @@ impl Connection {
         &mut self,
         frame: Frame<T>,
     ) -> Result<(), RRError> {
-        let frame: repr::Frame = frame.into();
         let b = frame.encode_length_delimited_to_vec();
         self.socket
             .write_all(b.as_slice())
@@ -61,11 +58,7 @@ where {
             .read_exact(&mut buf)
             .await
             .map_err(|_| RRErrorKind::NetworkError(NetworkErrorKind::FrameReadError))?;
-        Ok(Frame::try_from(
-            repr::Frame::decode(buf.as_slice()).map_err(|_| {
-                RRErrorKind::SerializationError(SerializationErrorKind::FormatError)
-            })?,
-        )?)
+        Frame::<String>::decode(buf.as_slice())
     }
 
     /// Advances the stream past the length delimiter and returns the delimiter so you can continue reading
@@ -77,7 +70,7 @@ where {
                 .read_u8()
                 .await
                 .map_err(|_| RRErrorKind::NetworkError(NetworkErrorKind::FrameReadError))?;
-            if let Ok(len) = prost::decode_length_delimiter(buf.as_slice()) {
+            if let Ok(len) = rredis_wire::decode_length_delimiter(buf.as_slice()) {
                 return Ok(len);
             }
         }

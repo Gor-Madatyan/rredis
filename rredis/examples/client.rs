@@ -14,9 +14,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut command = buf.trim().split(' ');
         let name = command.next().unwrap();
 
-        let frame = if name == "GET" {
+        let frame = if name.to_lowercase() == "get" {
             Frame::new_get_request(command.next().unwrap().to_string(), None)
-        } else if name == "SET" {
+        } else if name.to_lowercase() == "set" {
             Frame::new_set_request(
                 command.next().unwrap().to_string(),
                 Data::String(command.next().unwrap().to_string()),
