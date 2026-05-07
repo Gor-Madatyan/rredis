@@ -1,4 +1,4 @@
-use crate::storage::StorageSink;
+use crate::connection::server::storage::StorageSink;
 use rredis_wire::protocol::{error::RRError, Data, NetworkFrame};
 
 pub trait Handler: Clone + Send + Sync + 'static {

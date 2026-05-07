@@ -1,9 +1,11 @@
 mod helper;
+pub mod handler;
+pub mod storage;
 
-use rredis_wire::protocol::error::RRError;
-use crate::handler::Handler;
-use crate::storage::StorageProxy;
+use handler::Handler;
 use helper::*;
+use rredis_wire::protocol::error::RRError;
+use storage::StorageProxy;
 use tokio::net::{TcpListener, ToSocketAddrs};
 
 pub struct ServerBuilder<A: ToSocketAddrs, S: StorageProxy, H: Handler> {
