@@ -1,72 +1,51 @@
-use crate::protocol;
+use crate::field_not_optional;
 use crate::protocol::error::{
     RRError, RRErrorKind, SerializationErrorKind as PSerializationErrorKind,
 };
 use crate::repr::frame::Request;
+use crate::{cast_or_throw, protocol, try_to_protocol};
+
+mod macros;
 
 // to include codegen
 include!(concat!(env!("OUT_DIR"), "/network_protocol.rs"));
 
 // Conversions to protocol types
 
-impl TryFrom<Frame> for protocol::NetworkFrame {
-    type Error = RRError;
-    fn try_from(value: Frame) -> Result<Self, Self::Error> {
-        let request = value.request;
-        let payload = value.payload;
+try_to_protocol! {Frame, protocol::NetworkFrame, (value) =>
+      let request = value.request;
+      let payload = value.payload;
 
-        let request = request
-            .ok_or(RRErrorKind::SerializationError(
-                PSerializationErrorKind::FieldNotOptional("request".into()),
-            ))?
-            .try_into()?;
-        let payload = match payload {
-            None => None,
-            Some(payload) => Some(payload.try_into()?),
-        };
-        Ok(protocol::Frame::new(request, payload))
-    }
+      let request = cast_or_throw!(request, "request");
+      let payload = match payload {
+          None => None,
+          Some(payload) => Some(payload.try_into()?),
+      };
+      Ok(protocol::Frame::new(request, payload))
 }
 
-impl TryFrom<Request> for protocol::Request<String> {
-    type Error = RRError;
-    fn try_from(value: Request) -> Result<protocol::Request<String>, RRError> {
+try_to_protocol! {Request, protocol::Request<String>, (value) =>
         match value {
             Request::Get(req) => Ok(protocol::Request::Get { key: req.key }),
             Request::Set(req) => Ok(protocol::Request::Set {
                 key: req.key,
-                value: req
-                    .value
-                    .ok_or(RRErrorKind::SerializationError(
-                        PSerializationErrorKind::FieldNotOptional("value (set request)".into()),
-                    ))?
-                    .try_into()?,
+                value: cast_or_throw!(req.value, "value (set request)"),
             }),
             Request::Data(req) => Ok(protocol::Request::Data {
-                value: req
-                    .value
-                    .ok_or(RRErrorKind::SerializationError(
-                        PSerializationErrorKind::FieldNotOptional("value (data request)".into()),
-                    ))?
-                    .try_into()?,
+                value: cast_or_throw!(req.value, "value (data request)"),
             }),
             Request::Error(e) => Ok(protocol::Request::Error {
                 error: RRError::new(
-                    Result::from(e.kind.ok_or(RRErrorKind::SerializationError(
-                        PSerializationErrorKind::FieldNotOptional("kind (error)".into()),
-                    ))?)?,
+                    cast_or_throw!(e.kind,"kind (error)"),
                     e.message,
                 ),
             }),
         }
-    }
 }
 
-impl TryFrom<Data> for protocol::Data {
-    type Error = RRError;
-    fn try_from(value: Data) -> Result<Self, Self::Error> {
-        match value.kind.ok_or(RRErrorKind::SerializationError(
-            PSerializationErrorKind::FieldNotOptional("kind (data.kind)".into()),
+try_to_protocol! {Data, protocol::Data, (value) =>
+    match value.kind.ok_or(RRErrorKind::SerializationError(
+    PSerializationErrorKind::FieldNotOptional("kind (data.kind)".into()),
         ))? {
             data::Kind::UInteger(int) => Ok(protocol::Data::UInteger(int)),
             data::Kind::SInteger(int) => Ok(protocol::Data::SInteger(int)),
@@ -81,30 +60,20 @@ impl TryFrom<Data> for protocol::Data {
             })),
             data::Kind::ByteStream(s) => Ok(protocol::Data::ByteStream(s.into())),
         }
-    }
 }
-impl From<RrErrorKind> for Result<RRErrorKind, RRError> {
-    fn from(value: RrErrorKind) -> Self {
-        let kind = value.kind.ok_or(RRErrorKind::SerializationError(
-            PSerializationErrorKind::FieldNotOptional("kind (error)".into()),
-        ))?;
+
+try_to_protocol! {RrErrorKind, RRErrorKind, (value) =>
+    let kind = field_not_optional!(value.kind, "kind (error)");
 
         match kind {
-            rr_error_kind::Kind::SerializationError(e) => {
-                match e.kind.ok_or(RRErrorKind::SerializationError(
-                    PSerializationErrorKind::FieldNotOptional("kind (error)".into()),
-                ))? {
-                    serialization_error_kind::Kind::FieldNotOptional(k) => Ok(RRErrorKind::SerializationError(
-                        PSerializationErrorKind::FieldNotOptional(k)
-                    )),
-                    serialization_error_kind::Kind::FormatError(_) => Ok(RRErrorKind::SerializationError(
-                        PSerializationErrorKind::FormatError
-                    )),
-                }
-            }
+            rr_error_kind::Kind::SerializationError(e) =>
+                match field_not_optional!(e.kind, "kind (error)") {
+                    serialization_error_kind::Kind::FieldNotOptional(k) =>
+                        Ok(PSerializationErrorKind::FieldNotOptional(k).into()),
+                    serialization_error_kind::Kind::FormatError(_) =>
+                        Ok(PSerializationErrorKind::FormatError.into()),
+                },
             rr_error_kind::Kind::StorageError(e) => Ok(RRErrorKind::StorageError(e.try_into()?)),
             rr_error_kind::Kind::NetworkError(e) => Ok(RRErrorKind::NetworkError(e.try_into()?)),
         }
-    }
 }
-
