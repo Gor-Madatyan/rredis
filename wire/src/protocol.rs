@@ -40,6 +40,11 @@ where
     Get { key: T },
     /// Set request, __sent to server__
     Set { key: T, value: Data },
+    /// Listen request, used to subscribe for updates on a field,
+    /// if initial send of data isn't wanted, set initial_update to false
+    Listen { keys: Vec<T>, initial_update: bool },
+    /// the response type for Listen request
+    Notify { data: Data, key: String },
     /// plain data, __sent to client__
     Data { value: Data },
     /// Refusal is better than silence :)
@@ -70,6 +75,22 @@ where
     pub fn new_get_request(key: T, payload: Option<Data>) -> Self {
         Self {
             request: Request::Get { key },
+            payload,
+        }
+    }
+
+    /// create new `listen` request
+    pub fn new_listen_request(keys: impl Into<Vec<T>>, initial_update: bool, payload: Option<Data>) -> Self {
+        Self {
+            request: Request::Listen { keys: keys.into(), initial_update },
+            payload,
+        }
+    }
+
+    /// create new `notify` request
+    pub fn new_notify_request(key: T, data: Data, payload: Option<Data>) -> Self {
+        Self {
+            request: Request::Set { key, value: data },
             payload,
         }
     }

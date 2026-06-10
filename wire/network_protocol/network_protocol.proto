@@ -81,7 +81,22 @@ message GetRequest {
   string key = 1;
 }
 
+// Opens a long-lived subscription: the server pushes a notification
+// whenever the value at `key` changes.
+message ListenRequest {
+  repeated string key = 1;
+  // If true, the server immediately sends the current value,
+  // then continues with change notifications.
+  bool initial_update = 2;
+}
+
 message SetRequest {
+  string key = 1;
+  Data value = 2;
+}
+
+// Server→client push: a value changed on a subscribed key.
+message NotifyRequest {
   string key = 1;
   Data value = 2;
 }
@@ -100,7 +115,9 @@ message Frame {
     GetRequest get = 1;
     SetRequest set = 2;
     DataRequest data = 3;
-    ErrorRequest error = 4; // Newly added ErrorRequest
+    ErrorRequest error = 4;
+    ListenRequest listen = 6; // new; 5 is taken by payload
+    NotifyRequest notify = 7; 
   }
 
   // Additional context

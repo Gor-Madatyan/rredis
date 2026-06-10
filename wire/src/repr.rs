@@ -30,16 +30,24 @@ try_to_protocol! {Request, protocol::Request<String>, (value) =>
             Request::Set(req) => Ok(protocol::Request::Set {
                 key: req.key,
                 value: cast_or_throw!(req.value, "value (set request)"),
-            }),
+        }),
             Request::Data(req) => Ok(protocol::Request::Data {
                 value: cast_or_throw!(req.value, "value (data request)"),
-            }),
+        }),
+            Request::Listen(req) => Ok(protocol::Request::Listen {
+                keys: req.key,
+                initial_update: req.initial_update
+        }),
+            Request::Notify(req) => Ok(protocol::Request::Notify {
+                key: req.key,
+                data: cast_or_throw!(req.value, "value (notify request)")
+        }),
             Request::Error(e) => Ok(protocol::Request::Error {
                 error: RRError::new(
                     cast_or_throw!(e.kind,"kind (error)"),
                     e.message,
                 ),
-            }),
+        }),
         }
 }
 
