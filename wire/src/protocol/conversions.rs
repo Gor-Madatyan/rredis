@@ -9,6 +9,7 @@ impl<T: Into<String>> From<Frame<T>> for repr::Frame {
         Self {
             payload: value.payload.map(|d| d.into()),
             request: Some(value.request.into()),
+            request_id: value.request_id,
         }
     }
 }

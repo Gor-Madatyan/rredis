@@ -122,4 +122,9 @@ message Frame {
 
   // Additional context
   Data payload = 5;
+
+  // Correlates a response frame with the request that caused it,
+  // so clients can route replies (actor pattern).
+  // Frames from peers that don't set it decode as 0.
+  uint64 request_id = 8;
 }

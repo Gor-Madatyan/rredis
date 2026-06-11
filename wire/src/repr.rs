@@ -21,7 +21,7 @@ try_to_protocol! {Frame, protocol::NetworkFrame, (value) =>
           None => None,
           Some(payload) => Some(payload.try_into()?),
       };
-      Ok(protocol::Frame::new(request, payload))
+      Ok(protocol::Frame::new_from_id(request, value.request_id, payload))
 }
 
 try_to_protocol! {Request, protocol::Request<String>, (value) =>

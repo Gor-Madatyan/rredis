@@ -7,9 +7,12 @@ use bytes::{Buf, Bytes};
 use error::RRError;
 use prost::Message;
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub type ManyData = Vec<Data>;
 pub type NetworkFrame = Frame<String>;
+
+static ID: AtomicU64 = AtomicU64::new(1);
 
 /// Represents all the data that is sent __and/or__ received by server
 /// ## BY THE WAY
@@ -62,6 +65,8 @@ pub struct Frame<T: Into<String>> {
     request: Request<T>,
     // additional context
     payload: Option<Data>,
+    // correlates a response with the request that caused it (0 = unset)
+    request_id: u64,
 }
 
 impl<T> Frame<T>
@@ -69,54 +74,45 @@ where
     T: Into<String>,
 {
     pub fn new(request: Request<T>, payload: Option<Data>) -> Frame<T> {
-        Self { request, payload }
+        Self { request, payload, request_id: ID.fetch_add(1, Ordering::Relaxed) }
     }
-    /// create new `get` request
-    pub fn new_get_request(key: T, payload: Option<Data>) -> Self {
+
+    pub fn new_from_id(request: Request<T>, request_id: u64, payload: Option<Data>) -> Frame<T> {
         Self {
-            request: Request::Get { key },
+            request,
+            request_id,
             payload,
         }
+    }
+
+    /// create new `get` request
+    pub fn new_get_request(key: T, payload: Option<Data>) -> Self {
+        Self::new(Request::Get { key }, payload)
     }
 
     /// create new `listen` request
     pub fn new_listen_request(keys: impl Into<Vec<T>>, initial_update: bool, payload: Option<Data>) -> Self {
-        Self {
-            request: Request::Listen { keys: keys.into(), initial_update },
-            payload,
-        }
+        Self::new(Request::Listen { keys: keys.into(), initial_update }, payload)
     }
 
     /// create new `notify` request
     pub fn new_notify_request(key: T, data: Data, payload: Option<Data>) -> Self {
-        Self {
-            request: Request::Set { key, value: data },
-            payload,
-        }
+        Self::new(Request::Set { key, value: data }, payload)
     }
 
     /// create new `set` request
     pub fn new_set_request(key: T, data: Data, payload: Option<Data>) -> Self {
-        Self {
-            request: Request::Set { key, value: data },
-            payload,
-        }
+        Self::new(Request::Set { key, value: data }, payload)
     }
 
     /// create [`Frame`] to respond to a request made by a client
     pub fn new_data_request(data: Data, payload: Option<Data>) -> Self {
-        Self {
-            request: Request::Data { value: data },
-            payload,
-        }
+        Self::new(Request::Data { value: data }, payload)
     }
 
     /// Sometimes it is important to say no !!!!
     pub fn new_error_request(error: RRError, payload: Option<Data>) -> Self {
-        Self {
-            request: Request::Error { error },
-            payload,
-        }
+        Self::new(Request::Error { error }, payload)
     }
 
     pub fn encode_length_delimited_to_vec(self) -> Vec<u8> {

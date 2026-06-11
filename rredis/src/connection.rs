@@ -1,4 +1,6 @@
 pub mod server;
+pub mod client_actor;
+
 use rredis_wire::protocol::error::{NetworkErrorKind, RRErrorKind, SerializationErrorKind};
 use rredis_wire::protocol::{error::RRError, Frame, NetworkFrame};
 use std::fmt::Display;
