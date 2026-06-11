@@ -24,6 +24,7 @@ pub(super) fn handle_connection(mut connection: Connection, mut handler: impl Ha
                 Request::Data { .. } | Request::Error { .. } => Err(RRErrorKind::NetworkError(
                     NetworkErrorKind::InvalidRequestType
                 ).into()),
+                _ => todo!()
             };
             if let Ok(res) = res {
                 if let Err(_) = connection.write_frame(res).await { break; }
