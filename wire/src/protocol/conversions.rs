@@ -22,16 +22,11 @@ impl<T: Into<String>> From<Request<T>> for repr::frame::Request {
                 key: key.into(),
                 value: Some(value.into()),
             }),
-            Request::Data { value } => repr::frame::Request::Data(repr::DataRequest {
+            Request::Data { key, value } => repr::frame::Request::Data(repr::DataRequest {
+                key: key.into(),
                 value: Some(value.into()),
             }),
             Request::Error { error } => repr::frame::Request::Error(error.into()),
-            Request::Listen { keys, initial_update } => repr::frame::Request::Listen(
-                repr::ListenRequest { key: keys.into_iter().map(|i| i.into()).collect(), initial_update }
-            ),
-            Request::Notify { key, data } => repr::frame::Request::Notify(
-                repr::NotifyRequest { key, value: Some(data.into()) }
-            ),
         }
     }
 }

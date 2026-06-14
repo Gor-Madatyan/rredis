@@ -17,10 +17,10 @@ pub(super) fn handle_connection(mut connection: Connection, mut handler: impl Ha
         loop {
             let frame = connection.read_frame().await;
             if let Err(_) = frame { break; }
-            let (request, payload) = frame.unwrap().decompose();
+            let (request, payload, id) = frame.unwrap().decompose();
             let res = match request {
-                Request::Get { key } => handler.handle_get_request(key, payload, tx.clone()).await,
-                Request::Set { key, value } => handler.handle_set_request(key, value, payload, tx.clone()).await,
+                Request::Get { key } => handler.handle_get_request(key, payload, id, tx.clone()).await,
+                Request::Set { key, value } => handler.handle_set_request(key, value, payload, id, tx.clone()).await,
                 Request::Data { .. } | Request::Error { .. } => Err(RRErrorKind::NetworkError(
                     NetworkErrorKind::InvalidRequestType
                 ).into()),

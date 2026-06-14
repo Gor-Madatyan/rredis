@@ -3,6 +3,7 @@ use rredis::connection::server::storage::{DefaultStorageProxy, StorageRequest, S
 use rredis::connection::server::ServerBuilder;
 use rredis::protocol::error::{RRErrorKind, StorageErrorKind};
 use rredis::protocol::{error::RRError, Data, NetworkFrame};
+use rredis_wire::protocol::Request;
 use std::error::Error;
 
 struct MyHandler {}
@@ -19,33 +20,35 @@ impl Handler for MyHandler {
         key: String,
         value: Data,
         _payload: Option<Data>,
+        id: u64,
         sink: StorageSink,
     ) -> Result<NetworkFrame, RRError> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        sink.send(StorageRequest::Set(key, value, tx))
+        sink.send(StorageRequest::Set(key.clone(), value.clone(), tx))
             .await
             .map_err(|_| RRErrorKind::StorageError(StorageErrorKind::UnexpectedError))?;
         let _ = rx
             .await
             .map_err(|_| RRErrorKind::StorageError(StorageErrorKind::UnexpectedError))??;
-        Ok(NetworkFrame::new_data_request(Data::NULL, None))
+        Ok(NetworkFrame::new_from_id(Request::Data { key, value }, id, None))
     }
 
     async fn handle_get_request(
         &mut self,
         key: String,
         _payload: Option<Data>,
+        id: u64,
         sink: StorageSink,
     ) -> Result<NetworkFrame, RRError> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        sink.send(StorageRequest::Get(key, tx))
+        sink.send(StorageRequest::Get(key.clone(), tx))
             .await
             .map_err(|_| RRErrorKind::StorageError(StorageErrorKind::UnexpectedError))?;
         let rx = rx
             .await
             .map_err(|_| RRErrorKind::StorageError(StorageErrorKind::UnexpectedError))??;
         println!("Got response: {:?}", rx);
-        Ok(NetworkFrame::new_data_request(rx, None))
+        Ok(NetworkFrame::new_from_id(Request::Data { key, value: rx }, id, None))
     }
 }
 

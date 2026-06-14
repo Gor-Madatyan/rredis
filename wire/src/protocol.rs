@@ -1,5 +1,5 @@
-pub mod error;
 pub mod conversions;
+pub mod error;
 
 use crate::protocol::error::{RRErrorKind, SerializationErrorKind};
 use crate::repr;
@@ -43,15 +43,31 @@ where
     Get { key: T },
     /// Set request, __sent to server__
     Set { key: T, value: Data },
-    /// Listen request, used to subscribe for updates on a field,
-    /// if initial send of data isn't wanted, set initial_update to false
-    Listen { keys: Vec<T>, initial_update: bool },
-    /// the response type for Listen request
-    Notify { data: Data, key: String },
     /// plain data, __sent to client__
-    Data { value: Data },
+    Data { key: T, value: Data },
     /// Refusal is better than silence :)
     Error { error: RRError },
+}
+
+impl<T> Request<T>
+where
+    T: Into<String>,
+{
+    /// convert all keys to `String`, yielding the canonical network representation
+    pub fn into_network(self) -> Request<String> {
+        match self {
+            Request::Get { key } => Request::Get { key: key.into() },
+            Request::Set { key, value } => Request::Set {
+                key: key.into(),
+                value,
+            },
+            Request::Data { key, value } => Request::Data {
+                key: key.into(),
+                value,
+            },
+            Request::Error { error } => Request::Error { error },
+        }
+    }
 }
 
 /// The basic unit transferred over network.\
@@ -74,7 +90,11 @@ where
     T: Into<String>,
 {
     pub fn new(request: Request<T>, payload: Option<Data>) -> Frame<T> {
-        Self { request, payload, request_id: ID.fetch_add(1, Ordering::Relaxed) }
+        Self {
+            request,
+            payload,
+            request_id: ID.fetch_add(1, Ordering::Relaxed),
+        }
     }
 
     pub fn new_from_id(request: Request<T>, request_id: u64, payload: Option<Data>) -> Frame<T> {
@@ -90,24 +110,14 @@ where
         Self::new(Request::Get { key }, payload)
     }
 
-    /// create new `listen` request
-    pub fn new_listen_request(keys: impl Into<Vec<T>>, initial_update: bool, payload: Option<Data>) -> Self {
-        Self::new(Request::Listen { keys: keys.into(), initial_update }, payload)
-    }
-
-    /// create new `notify` request
-    pub fn new_notify_request(key: T, data: Data, payload: Option<Data>) -> Self {
-        Self::new(Request::Set { key, value: data }, payload)
-    }
-
     /// create new `set` request
     pub fn new_set_request(key: T, data: Data, payload: Option<Data>) -> Self {
         Self::new(Request::Set { key, value: data }, payload)
     }
 
     /// create [`Frame`] to respond to a request made by a client
-    pub fn new_data_request(data: Data, payload: Option<Data>) -> Self {
-        Self::new(Request::Data { value: data }, payload)
+    pub fn new_data_request(key: T, data: Data, payload: Option<Data>) -> Self {
+        Self::new(Request::Data { key, value: data }, payload)
     }
 
     /// Sometimes it is important to say no !!!!
@@ -120,15 +130,26 @@ where
     }
 
     pub fn decode(buf: impl Buf) -> Result<Frame<String>, RRError> {
-        Ok(Frame::try_from(
-            repr::Frame::decode(buf).map_err(|_| {
-                RRErrorKind::SerializationError(SerializationErrorKind::FormatError)
-            })?,
-        )?)
+        Ok(Frame::try_from(repr::Frame::decode(buf).map_err(
+            |_| RRErrorKind::SerializationError(SerializationErrorKind::FormatError),
+        )?)?)
     }
 
     /// gives the primary request and the optional payload
-    pub fn decompose(self) -> (Request<T>, Option<Data>) {
-        (self.request, self.payload)
+    pub fn decompose(self) -> (Request<T>, Option<Data>, u64) {
+        (self.request, self.payload, self.request_id)
+    }
+
+    /// convert into a [`NetworkFrame`], keeping the request id
+    pub fn into_network(self) -> NetworkFrame {
+        Frame {
+            request: self.request.into_network(),
+            payload: self.payload,
+            request_id: self.request_id,
+        }
+    }
+
+    pub fn get_id(&self) -> u64 {
+        self.request_id
     }
 }
